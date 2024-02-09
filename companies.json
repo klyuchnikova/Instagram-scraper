@@ -1,0 +1,36 @@
+{
+    "disney": [
+        "disney",
+        "disneyland",
+        "disneyresorts",
+        "disneygrammers",
+        "disneyphotos",
+        "instadisneyworld",
+        "disneyfood",
+        "disneyinsta"
+    ],
+    "apple": [
+        "macbook",
+        "appletv",
+        "appleevent"
+    ],
+    "microsoft": [
+        "microsoft",
+        "microsoftoffice",
+        "xbox",
+        "onedrive",
+        "skype",
+        "windows"
+    ],
+    "nike": [
+        "nike",
+        "nikejordan",
+        "airforce",
+        "nikenba"
+    ],
+    "mercedes": [
+        "mercedesamg",
+        "mercedesbenz",
+        "mercedesformula"
+    ]
+}
