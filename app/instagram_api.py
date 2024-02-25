@@ -40,7 +40,7 @@ class InstagramApi:
         scape_comments: bool = False,
         scrape_tags: bool = False,
     ):
-        self.web_driver = web_driver
+        self.driver = web_driver
         self._scape_comments = scape_comments
         self._scrape_tags = scrape_tags
 
@@ -99,7 +99,7 @@ class InstagramApi:
     def scrape_posts_by_tag(
         self, tag: str, filter_function, maximum_posts: int = 50
     ) -> tp.List[Post]:
-        self.driver.get(INSTAGRAM_TAG_EXPLORE_TEMPLATE.format(tag))
+        self.driver.get(INSTAGRAM_TAG_EXPLORE_TEMPLATE.format(tag_name=tag))
         # Wait for the pictures to load
         wait = WebDriverWait(self.driver, 10)
         wait.until(
@@ -155,11 +155,9 @@ class InstagramApi:
             time.sleep(5)
         return None
 
-    def scrape_post_by_url(
+    def scrape_comments(
         self,
-        post_url: str,
+        post_id: str,
         max_comments: int = 200,
-        max_tags: int = 10,
     ) -> Post:
-        # --!
-        pass
+        raise NotImplementedError

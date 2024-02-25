@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import re
 from PIL import Image  # type: ignore
-from app.instagram_api import Post  # type: ignore
+from .instagram_api import Post  # type: ignore
 import typing as tp
 
 # WARNING! Does not support concurrency calls
@@ -16,15 +16,15 @@ class InstagramStorage:
     CONTENT_TABLE_NAME = "content.csv"
     IMAGE_NAME_REGEX = re.compile(r"img_(\d+)\.jpg")
     IMAGE_NAME_FORMAT = "img_{image_id}.jpg"
-    TABLE_COLUMNS = {
-        "post_id": str,  # necessary (index)
-        "tags": str,
-        "company": str,  # necessary
-        "image_url": str,  # necessary
-        "image_file": str,
-        "caption": str,  # necessary
-        "comments": str,
-        "number_comments": str,
+    TABLE_COLUMNS = {  # column : pandas dtype
+        "post_id": "str",  # necessary (index)
+        "tags": "str",
+        "company": "str",  # necessary
+        "image_url": "str",  # necessary
+        "image_file": "str",
+        "caption": "str",  # necessary
+        "comments": "str",
+        "number_comments": "str",
     }
 
     def __init__(self, folder_path: str = "../data", clear_old=False):
@@ -38,7 +38,10 @@ class InstagramStorage:
             self.contents_table = pd.read_csv(self._table_path, index_col="post_id")
         else:
             self.contents_table = pd.DataFrame(
-                columns=self.TABLE_COLUMNS.keys(), dtype=self.TABLE_COLUMNS
+                {
+                    column: pd.Series(dtype=column_type)
+                    for column, column_type in self.TABLE_COLUMNS.items()
+                }
             )
             self.contents_table.set_index("post_id", inplace=True)
 
@@ -58,6 +61,22 @@ class InstagramStorage:
             )
         return None
 
+    def _rows_to_posts(self, rows) -> tp.List[Post]:
+        post_objects = []
+        for index, row in rows.iterrows():
+            post = Post(
+                id=index,
+                image_url=row["image_url"],
+                caption=row["caption"],
+                tags=row["tags"].split(",") if pd.notna(row["tags"]) else [],
+                comments=(
+                    row["comments"].split("\n") if pd.notna(row["comments"]) else []
+                ),
+            )
+            post.company = row["company"]
+            post_objects.append(post)
+        return post_objects
+
     def update_post_info(self, post: Post):
         new_row = {
             "image_url": post.image_url,
@@ -73,7 +92,9 @@ class InstagramStorage:
 
     def save_image_for_post(self, post_id: str, img: Image):
         # saving image
-        image_file_name = self.IMAGE_NAME_FORMAT.format(self._current_image_count)
+        image_file_name = self.IMAGE_NAME_FORMAT.format(
+            image_id=self._current_image_count
+        )
         img.save(os.path.join(self.folder_path, image_file_name))
         self._current_image_count += 1
 
@@ -88,6 +109,11 @@ class InstagramStorage:
         except KeyError:
             print(f"Tried saving image for unknown post: {post_id}")
             raise
+
+    def get_all_with_no_image(self) -> tp.List[Post]:
+        return self._rows_to_posts(
+            self.contents_table[self.contents_table["image_file"].isna()]
+        )
 
     def _clear_old_contents(self):
         content_extentions = ("jpg", "jpeg", "png", "gif", "bmp", "csv")

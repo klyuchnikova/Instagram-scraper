@@ -13,6 +13,7 @@ class Configuration:
     INSTAGRAM_PASSWORD = None
 
     # optionally we could only scrape parts of what we need
+    SCRAPE_POSTS = True
     SCRAPE_IMAGES = False
     SCRAPE_COMMENTS = False
 
@@ -33,10 +34,11 @@ class Configuration:
         self.INSTAGRAM_LOGIN = args.instagram_login or self.INSTAGRAM_LOGIN
         self.INSTAGRAM_PASSWORD = args.instagram_password or self.INSTAGRAM_PASSWORD
 
+        self.SCRAPE_POSTS = False if not args.scrape_posts else True
         self.SCRAPE_IMAGES = args.scrape_images or self.SCRAPE_IMAGES
         self.SCRAPE_COMMENTS = args.scrape_comments or self.SCRAPE_COMMENTS
 
-        self.COMPANIES = args.companies
+        self.COMPANIES = args.companies or self.COMPANIES
 
     def _load_from_env(self):
         if not self.ENV_PATH or not os.path.exists(self.ENV_PATH):
@@ -88,6 +90,12 @@ def load_configuration(root_dir: str) -> Configuration:
         help="Absolute path to output folder where scraped results will be saved.\n",
     )
     parser.add_argument(
+        "--scrape-posts",
+        action="store_true",
+        required=False,
+        help="Turn on-off scraping posts. If on, firstly the general posts by tags will be scraped and stored in content.csv. Else, the future scraping will be applied to all empty fields found in the table.\n",
+    )
+    parser.add_argument(
         "--scrape-images",
         action="store_true",
         required=False,
@@ -102,8 +110,8 @@ def load_configuration(root_dir: str) -> Configuration:
     parser.add_argument(
         "--companies",
         nargs="+",
-        required=True,
-        help="List companies you wish to scrape from. They are expected to be keys in companies.json that lies in the root\n",
+        required=False,
+        help="List companies you wish to scrape from. They are expected to be keys in companies.json that lies in the root. If none provided, will use ALL comapnies found in the file.\n",
     )
     args = parser.parse_args()
     return Configuration(args, root_dir)

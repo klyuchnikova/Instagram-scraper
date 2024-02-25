@@ -3,6 +3,9 @@ from os import curdir
 import logging
 from app.config import load_configuration
 from app.storage import InstagramStorage
+from selenium import webdriver
+from app.scraping import scrape_instagram
+import sys
 
 
 def init():
@@ -14,11 +17,22 @@ def init():
         )
         exit(0)
 
+    if sys.prefix == sys.base_prefix:
+        logging.warning("Your code is not running inside a virtual environment.")
+        exit(0)
+
 
 def main():
     global ROOT_DIR
     init()
     configuration = load_configuration(ROOT_DIR)
     storage = InstagramStorage(folder_path=configuration.SCRAPER_OUTPUT_PATH)
+    driver = webdriver.Chrome()
+    try:
+        scrape_instagram(storage, driver, configuration)
+    finally:
+        driver.quit()
 
-    dr
+
+if __name__ == "__main__":
+    main()
