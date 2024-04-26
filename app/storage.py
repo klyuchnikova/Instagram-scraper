@@ -115,6 +115,11 @@ class InstagramStorage:
             self.contents_table[self.contents_table["image_file"].isna()]
         )
 
+    def get_all_with_no_comment(self) -> tp.List[Post]:
+        return self._rows_to_posts(
+            self.contents_table[self.contents_table["comments"].isna()]
+        )
+
     def _clear_old_contents(self):
         content_extentions = ("jpg", "jpeg", "png", "gif", "bmp", "csv")
         if os.path.exists(self.folder_path):

@@ -34,7 +34,7 @@ class Configuration:
         self.INSTAGRAM_LOGIN = args.instagram_login or self.INSTAGRAM_LOGIN
         self.INSTAGRAM_PASSWORD = args.instagram_password or self.INSTAGRAM_PASSWORD
 
-        self.SCRAPE_POSTS = False if not args.scrape_posts else True
+        self.SCRAPE_POSTS = self.SCRAPE_POSTS if not args.scrape_posts else True
         self.SCRAPE_IMAGES = args.scrape_images or self.SCRAPE_IMAGES
         self.SCRAPE_COMMENTS = args.scrape_comments or self.SCRAPE_COMMENTS
 
@@ -44,15 +44,16 @@ class Configuration:
         if not self.ENV_PATH or not os.path.exists(self.ENV_PATH):
             logging.info("couln't find configuration file, skipping it")
             return
-        logging.info("loading configuration file")
-        load_dotenv(self.ENV_PATH)
+        logging.info(f"loading configuration file from {self.ENV_PATH}")
+        load_dotenv(self.ENV_PATH, override=True)
         self.SCRAPER_OUTPUT_PATH = (
             os.getenv("SCRAPER_OUTPUT_PATH") or self.SCRAPER_OUTPUT_PATH
         )
         self.INSTAGRAM_LOGIN = os.getenv("INSTAGRAM_LOGIN")
         self.INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
-        self.SCRAPE_IMAGES = os.getenv("SCRAPE_IMAGES")
-        self.SCRAPE_COMMENTS = os.getenv("SCRAPE_COMMENTS")
+        self.SCRAPE_POSTS = self._load_bool_var("SCRAPE_POSTS")
+        self.SCRAPE_IMAGES = self._load_bool_var("SCRAPE_IMAGES")
+        self.SCRAPE_COMMENTS = self._load_bool_var("SCRAPE_COMMENTS")
 
     def _validate(self):
         if self.SCRAPE_COMMENTS and (
@@ -61,6 +62,27 @@ class Configuration:
             raise AttributeError(
                 "For scraping instagram comments authentication is needed, please provide login and password"
             )
+
+    def _load_bool_var(self, name: str, default_value: bool | None = None) -> bool:
+        true_ = (
+            "true",
+            "1",
+            "t",
+        )
+        false_ = (
+            "false",
+            "0",
+            "f",
+        )
+        value: str | None = os.getenv(name, None)
+        if value is None:
+            if default_value is None:
+                raise ValueError(f"Variable `{name}` not set!")
+            else:
+                value = str(default_value)
+        if value.lower() not in true_ + false_:
+            raise ValueError(f"Invalid value `{value}` for variable `{name}`")
+        return value.lower() in true_
 
 
 def load_configuration(root_dir: str) -> Configuration:

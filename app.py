@@ -1,14 +1,20 @@
 from os.path import dirname, realpath, basename
 from os import curdir
+import sys
 import logging
+from selenium import webdriver
+
 from app.config import load_configuration
 from app.storage import InstagramStorage
-from selenium import webdriver
 from app.scraping import scrape_instagram
-import sys
+
+from utils.logging import configure_logging
 
 
 def init():
+    loglevel = logging.INFO
+    configure_logging(loglevel=loglevel, console_level=loglevel, log_file=None)
+
     global ROOT_DIR
     ROOT_DIR = dirname(realpath(__file__))
     if basename(realpath(curdir)) != "Instagram-scraper":

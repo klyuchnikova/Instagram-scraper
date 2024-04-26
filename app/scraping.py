@@ -40,27 +40,36 @@ def scrape_instagram(
         companies_file=configuration.COMPANIES_FILE_PATH,
         list_of_companies=configuration.COMPANIES,
     )
+
     instagram = InstagramApi(
         web_driver=web_driver,
         scape_comments=configuration.SCRAPE_COMMENTS,
         scrape_tags=True,
     )
-    if configuration.SCRAPE_COMMENTS:
-        instagram.login()
 
     if configuration.SCRAPE_POSTS:
         scraped_posts = scrape_posts_by_tags(storage, instagram, companies)
-    else:
-        scraped_posts = storage.get_all_with_no_image()
 
     if configuration.SCRAPE_IMAGES:
+        if not configuration.SCRAPE_POSTS:
+            scraped_posts = storage.get_all_with_no_image()
         scrape_images_for_posts(scraped_posts, storage, instagram)
+
     if configuration.SCRAPE_COMMENTS:
+        if not configuration.SCRAPE_POSTS:
+            scraped_posts = storage.get_all_with_no_comment()
+        logging.info(f"Scraping comments for {len(scraped_posts)} posts")
+        instagram.login(
+            username=configuration.INSTAGRAM_LOGIN,
+            password=configuration.INSTAGRAM_PASSWORD,
+        )
         scrape_comments_for_posts(scraped_posts, storage, instagram)
 
 
 def scrape_posts_by_tags(
-    storage: InstagramStorage, instagram, companies: tp.Dict[str, tp.List[str]]
+    storage: InstagramStorage,
+    instagram: InstagramApi,
+    companies: tp.Dict[str, tp.List[str]],
 ) -> tp.List[Post]:
     def filter_post(post: Post) -> bool:
         # returns true if post passes the filter
@@ -68,7 +77,7 @@ def scrape_posts_by_tags(
 
     posts = []  # tp.List[Post]
     for company, tags in companies.items():
-        for post in instagram.scrape_posts_by_tags(tags, filter_post):
+        for post in instagram.scrape_posts_by_tags(tags, filter_post, maximum_posts=50):
             post.company = company
             storage.update_post_info(post)
             posts.append(post)
@@ -90,9 +99,17 @@ def scrape_images_for_posts(
 def scrape_comments_for_posts(
     posts: tp.List[Post], storage: InstagramStorage, instagram: InstagramApi
 ):
+    def filter_small_comments(comment: str):
+        if len(comment.split()) < 5:
+            return False
+        return True
+
     try:
         for post in posts:
-            comments = instagram.scrape_comments(post.id, max_comments=100)
-            storage.save_image_for_post(post.id, comments)
+            instagram.scrape_comments(
+                post, max_comments=100, filter=filter_small_comments
+            )
+            logging.info(f"comments: {post.comments}")
+            storage.update_post_info(post)
     finally:
         storage.save_table_changes()  # don't forget this step :)

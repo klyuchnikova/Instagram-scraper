@@ -17,7 +17,14 @@ INSTAGRAM_TAG_EXPLORE_TEMPLATE = "https://www.instagram.com/explore/tags/{tag_na
 
 
 class Post:
-    def __init__(self, id, image_url, caption, tags=[], comments=[]):
+    def __init__(
+        self,
+        id: str,
+        image_url: str,
+        caption: str,
+        tags: tp.List[str] = [],
+        comments: tp.List[str] = [],
+    ):
         self.id = id
         self.image_url = image_url
         self.caption = caption
@@ -32,6 +39,12 @@ class Post:
     def add_comment(self, text: str):
         self.comments.append(text)
 
+    def __str__(self):
+        return f"Post(id: {self.id} url: {self.image_url})"
+
+    def __repr__(self):
+        return f"Post(id: {self.id} url: {self.image_url})"
+
 
 class InstagramApi:
     def __init__(
@@ -45,15 +58,18 @@ class InstagramApi:
         self._scrape_tags = scrape_tags
 
     def login(self, username: str, password: str):
-        self.driver.get("https://www.instagram.com")
+        try:
+            self.driver.get("https://www.instagram.com")
+        except Exception:
+            logging.info("Could not connect to instagram, check VPN!")
+            raise
 
         # Wait for the pop-up to appear and close it
         pop_up_path = (
             "/html/body/div[6]/div[1]/div/div[2]/div/div/div/div/div[2]/div/button[1]"
         )
-
         try:
-            WebDriverWait(self.driver, 5).until(
+            WebDriverWait(self.driver, 2).until(
                 EC.presence_of_element_located((By.XPATH, pop_up_path))
             )
             cookie_button = self.driver.find_element(By.XPATH, pop_up_path)
@@ -61,7 +77,7 @@ class InstagramApi:
             time.sleep(2)
         except Exception:
             print("Cookie pop-up not found or already handled.")
-            raise
+            pass
 
         # Login procedure
         username_input = self.driver.find_element(By.NAME, "username")
@@ -99,6 +115,9 @@ class InstagramApi:
     def scrape_posts_by_tag(
         self, tag: str, filter_function, maximum_posts: int = 50
     ) -> tp.List[Post]:
+        logging.info(
+            f"scraping posts by tag, link: {INSTAGRAM_TAG_EXPLORE_TEMPLATE.format(tag_name=tag)}"
+        )
         self.driver.get(INSTAGRAM_TAG_EXPLORE_TEMPLATE.format(tag_name=tag))
         # Wait for the pictures to load
         wait = WebDriverWait(self.driver, 10)
@@ -108,6 +127,7 @@ class InstagramApi:
 
         scraped_posts = []
         images = self.driver.find_elements(By.CSS_SELECTOR, "div._aagv > img")
+        logging.info(f"scraping posts by tag, number posts: {len(images)}")
         for image in images:
             image_url = image.get_attribute("src")
             caption = image.get_attribute("alt")
@@ -123,7 +143,11 @@ class InstagramApi:
                     f"Couldn't parse post, irregular post link: {post_url}"
                 )
             post_id = match.group(1)
-            found_post = Post(id=post_id, image_url=image_url, caption=caption)
+            found_post = Post(
+                id=post_id,
+                image_url=f"https://www.instagram.com/p/{post_id}/?img_index=1",
+                caption=caption,
+            )
             # later use scrape_post_by_url --!
             if filter_function(found_post):
                 scraped_posts.append(found_post)
@@ -157,7 +181,42 @@ class InstagramApi:
 
     def scrape_comments(
         self,
-        post_id: str,
+        post: Post,
         max_comments: int = 200,
-    ) -> Post:
-        raise NotImplementedError
+        filter=None,  # filter function
+    ) -> None:
+        # Scrapes comments inplace into the post
+        post_url = INSTAGRAM_POST_URL_TEMPLATE.format(post_id=post.id)
+        logging.info(f"post_url: {post_url}")
+        self.driver.get(post_url)
+
+        more_comments_xpath = "/html/body/div[2]/div/div/div[2]/div/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[2]/div/div[2]/div/div/ul/li/div/button"
+        # Wait for the caption to load
+        wait = WebDriverWait(self.driver, 10)
+        wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "_a9zs")))
+        post.caption = self.driver.find_element(By.CLASS_NAME, "_a9zs").text
+
+        with open("page_source.html", "w", encoding="utf-8") as f:
+            f.write(self.driver.page_source)
+
+        try:
+            load_more_comment = self.driver.find_element(By.XPATH, more_comments_xpath)
+            i = 0
+            while load_more_comment.is_displayed() and i * 5 < max_comments:
+                load_more_comment.click()
+                time.sleep(7)
+                load_more_comment = self.driver.find_element(
+                    By.XPATH, more_comments_xpath
+                )
+                i += 1
+        except Exception:
+            logging.exception("We failed to load more comments")
+
+        # user_names = []
+        comment = self.driver.find_elements(By.CLASS_NAME, "_a9ym")
+        for c in comment[:max_comments]:
+            container = c.find_element(By.CLASS_NAME, "_a9zr")
+            # name = container.find_element(By.CLASS_NAME, "_a9zc").text
+            content = container.find_element(By.TAG_NAME, "span").text
+            content = content.replace("\n", " ").strip().rstrip()
+            post.comments.append(content)
