@@ -47,22 +47,28 @@ def scrape_instagram(
         scrape_tags=True,
     )
 
+    if configuration.SCRAPE_COMMENTS:
+        logging.info("Logging to instagram with provided cridentials")
+        instagram.login(
+            username=configuration.INSTAGRAM_LOGIN,
+            password=configuration.INSTAGRAM_PASSWORD,
+        )
+
     if configuration.SCRAPE_POSTS:
-        scraped_posts = scrape_posts_by_tags(storage, instagram, companies)
+        scraped_posts = scrape_posts_by_tags(
+            storage, instagram, companies, maximum_posts=configuration.MAXIMUM_POSTS
+        )
 
     if configuration.SCRAPE_IMAGES:
         if not configuration.SCRAPE_POSTS:
             scraped_posts = storage.get_all_with_no_image()
+        logging.info(f"Scraping images for {len(scraped_posts)} posts")
         scrape_images_for_posts(scraped_posts, storage, instagram)
 
     if configuration.SCRAPE_COMMENTS:
         if not configuration.SCRAPE_POSTS:
             scraped_posts = storage.get_all_with_no_comment()
         logging.info(f"Scraping comments for {len(scraped_posts)} posts")
-        instagram.login(
-            username=configuration.INSTAGRAM_LOGIN,
-            password=configuration.INSTAGRAM_PASSWORD,
-        )
         scrape_comments_for_posts(scraped_posts, storage, instagram)
 
 
@@ -70,6 +76,7 @@ def scrape_posts_by_tags(
     storage: InstagramStorage,
     instagram: InstagramApi,
     companies: tp.Dict[str, tp.List[str]],
+    maximum_posts=50,
 ) -> tp.List[Post]:
     def filter_post(post: Post) -> bool:
         # returns true if post passes the filter
@@ -77,7 +84,9 @@ def scrape_posts_by_tags(
 
     posts = []  # tp.List[Post]
     for company, tags in companies.items():
-        for post in instagram.scrape_posts_by_tags(tags, filter_post, maximum_posts=50):
+        for post in instagram.scrape_posts_by_tags(
+            tags, filter_post, maximum_posts=maximum_posts
+        ):
             post.company = company
             storage.update_post_info(post)
             posts.append(post)
@@ -100,7 +109,7 @@ def scrape_comments_for_posts(
     posts: tp.List[Post], storage: InstagramStorage, instagram: InstagramApi
 ):
     def filter_small_comments(comment: str):
-        if len(comment.split()) < 5:
+        if len(comment) < 2:
             return False
         return True
 

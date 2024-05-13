@@ -4,6 +4,7 @@ import re
 from PIL import Image  # type: ignore
 from .instagram_api import Post  # type: ignore
 import typing as tp
+import logging
 
 # WARNING! Does not support concurrency calls
 # Preferrable use:
@@ -24,7 +25,7 @@ class InstagramStorage:
         "image_file": "str",
         "caption": "str",  # necessary
         "comments": "str",
-        "number_comments": "str",
+        "number_comments": "int",
     }
 
     def __init__(self, folder_path: str = "../data", clear_old=False):
@@ -95,6 +96,10 @@ class InstagramStorage:
         image_file_name = self.IMAGE_NAME_FORMAT.format(
             image_id=self._current_image_count
         )
+        if img is None:
+            logging.info(
+                f"Cant's save image for post: {post_id}, it seems it could not be loaded"
+            )
         img.save(os.path.join(self.folder_path, image_file_name))
         self._current_image_count += 1
 
@@ -102,9 +107,7 @@ class InstagramStorage:
         try:
             old_file = self.contents_table.loc[post_id, "image_file"]
             if pd.notna(old_file):
-                raise RuntimeError(
-                    f"Attempted replacing image file for post: {post_id}"
-                )
+                logging.info(f"Attempted replacing image file for post: {post_id}")
             self.contents_table.loc[post_id, "image_file"] = image_file_name
         except KeyError:
             print(f"Tried saving image for unknown post: {post_id}")

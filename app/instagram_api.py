@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException
 from PIL import Image
 import re
 import time
@@ -120,10 +121,18 @@ class InstagramApi:
         )
         self.driver.get(INSTAGRAM_TAG_EXPLORE_TEMPLATE.format(tag_name=tag))
         # Wait for the pictures to load
-        wait = WebDriverWait(self.driver, 10)
-        wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div._aagv > img"))
-        )
+        try:
+            wait = WebDriverWait(self.driver, 30, poll_frequency=10)
+            wait.until(
+                EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, "div._aagv > img")
+                )
+            )
+        except TimeoutException:
+            logging.info(
+                f"Error loading the page by timeout: {INSTAGRAM_TAG_EXPLORE_TEMPLATE.format(tag_name=tag)}, this tag will be ignored"
+            )
+            return []
 
         scraped_posts = []
         images = self.driver.find_elements(By.CSS_SELECTOR, "div._aagv > img")
@@ -145,7 +154,8 @@ class InstagramApi:
             post_id = match.group(1)
             found_post = Post(
                 id=post_id,
-                image_url=f"https://www.instagram.com/p/{post_id}/?img_index=1",
+                tags=[tag],
+                image_url=image_url,
                 caption=caption,
             )
             # later use scrape_post_by_url --!
@@ -182,7 +192,7 @@ class InstagramApi:
     def scrape_comments(
         self,
         post: Post,
-        max_comments: int = 200,
+        max_comments: int = 400,
         filter=None,  # filter function
     ) -> None:
         # Scrapes comments inplace into the post
@@ -192,8 +202,14 @@ class InstagramApi:
 
         more_comments_xpath = "/html/body/div[2]/div/div/div[2]/div/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[2]/div/div[2]/div/div/ul/li/div/button"
         # Wait for the caption to load
-        wait = WebDriverWait(self.driver, 10)
-        wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "_a9zs")))
+        try:
+            wait = WebDriverWait(self.driver, 20)
+            wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "_a9zs")))
+        except TimeoutException:
+            logging.info(
+                f"Couldn't scrape comments for post: {post_url}: Timeout, skipping"
+            )
+            return
         post.caption = self.driver.find_element(By.CLASS_NAME, "_a9zs").text
 
         with open("page_source.html", "w", encoding="utf-8") as f:
@@ -218,5 +234,5 @@ class InstagramApi:
             container = c.find_element(By.CLASS_NAME, "_a9zr")
             # name = container.find_element(By.CLASS_NAME, "_a9zc").text
             content = container.find_element(By.TAG_NAME, "span").text
-            content = content.replace("\n", " ").strip().rstrip()
+            content = content.replace("\n", " ").strip()
             post.comments.append(content)

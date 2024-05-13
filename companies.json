@@ -32,5 +32,17 @@
         "mercedesamg",
         "mercedesbenz",
         "mercedesformula"
+    ],
+    "netflix": [
+        "netflix",
+        "netflixseries",
+        "netflixandchill",
+        "netflixbrasil",
+        "netflixmovies",
+        "seriesnetflix"
+    ],
+    "yandex travel": [
+        "yandextravel",
+        "yandextravels"
     ]
 }

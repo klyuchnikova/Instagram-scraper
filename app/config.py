@@ -17,6 +17,8 @@ class Configuration:
     SCRAPE_IMAGES = False
     SCRAPE_COMMENTS = False
 
+    MAXIMUM_POSTS = 52
+
     # list of comapny names that are being scraped
     COMPANIES = []
     COMPANIES_FILE_PATH = None
